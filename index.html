@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Registro semanal · Equipe de UX</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="app" id="app">
+
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true">UX</span>
+      <div class="brand-text">
+        <h1>Registro semanal</h1>
+        <p class="subtitle">Protótipo · equipe de UX · toda quarta</p>
+      </div>
+    </div>
+    <nav class="tabs" role="tablist" aria-label="Seções">
+      <button class="tab is-active" id="tab-form" role="tab" aria-selected="true" aria-controls="view-form">Novo registro</button>
+      <button class="tab" id="tab-history" role="tab" aria-selected="false" aria-controls="view-history">Linha do tempo</button>
+    </nav>
+    <button type="button" class="theme-toggle" id="theme-toggle" aria-pressed="false">
+      <span class="theme-toggle-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor"><path d="M20.2 14.4a8.7 8.7 0 0 1-10.6-10.6A9.7 9.7 0 1 0 20.2 14.4z"/></svg>
+      </span>
+      <span class="theme-toggle-label">Modo escuro</span>
+    </button>
+  </header>
+
+  <div class="toast" id="toast" role="alert" aria-live="assertive" hidden>
+    <span class="toast-icon" aria-hidden="true">
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+    </span>
+    <span id="toast-message"></span>
+  </div>
+
+  <p class="notice" role="note">
+    Os registros e as imagens ficam salvos <strong>localmente, na pasta deste projeto</strong> (arquivo <code>data/entries.json</code> e pasta <code>uploads/</code>).
+  </p>
+
+  <main>
+    <!-- ===================== FORM VIEW ===================== -->
+    <section id="view-form" role="tabpanel" aria-labelledby="tab-form">
+      <form id="entry-form" novalidate>
+
+        <fieldset class="card">
+          <legend>Quem está registrando</legend>
+          <div class="row">
+            <div class="field">
+              <label for="nome">Nome *</label>
+              <input type="text" id="nome" name="nome" required autocomplete="name">
+              <span class="error" id="err-nome" aria-live="polite"></span>
+            </div>
+            <div class="field">
+              <label for="data">Data *</label>
+              <input type="date" id="data" name="data" required>
+              <span class="error" id="err-data" aria-live="polite"></span>
+            </div>
+          </div>
+        </fieldset>
+
+        <fieldset class="card">
+          <legend>Memes da semana</legend>
+          <p class="hint">Um resumo visual de como foi a semana — título do meme e, se quiser, o link da imagem.</p>
+          <div class="memes-strip">
+            <div class="meme-note meme-note--legal">
+              <label for="meme-legal-titulo">Fiz algo legal</label>
+              <input type="text" id="meme-legal-titulo" placeholder="Ex: aniversário junino">
+              <label for="meme-legal-img" class="label-sub">Imagem (opcional)</label>
+              <input type="file" id="meme-legal-img" accept="image/*">
+            </div>
+            <div class="meme-note meme-note--foda">
+              <label for="meme-foda-titulo">Resolvi algo foda</label>
+              <input type="text" id="meme-foda-titulo" placeholder="Ex: destravei o acesso do Call Center">
+              <label for="meme-foda-img" class="label-sub">Imagem (opcional)</label>
+              <input type="file" id="meme-foda-img" accept="image/*">
+            </div>
+            <div class="meme-note meme-note--shit">
+              <label for="meme-shit-titulo">Shit happens</label>
+              <input type="text" id="meme-shit-titulo" placeholder="Ex: Claudinho parou de funcionar">
+              <label for="meme-shit-img" class="label-sub">Imagem (opcional)</label>
+              <input type="file" id="meme-shit-img" accept="image/*">
+            </div>
+          </div>
+        </fieldset>
+
+        <fieldset class="card">
+          <legend>Projetos</legend>
+          <p class="hint">Adicione um bloco para cada projeto em andamento.</p>
+          <div id="projetos-container"></div>
+          <button type="button" class="btn btn-ghost" id="add-projeto">+ Adicionar projeto</button>
+        </fieldset>
+
+        <div class="actions">
+          <button type="submit" class="btn btn-primary">Salvar registro</button>
+          <button type="button" class="btn btn-ghost" id="preview-btn">Gerar texto formatado</button>
+        </div>
+        <p class="status" id="save-status" role="status" aria-live="polite"></p>
+      </form>
+    </section>
+
+    <!-- ===================== HISTORY VIEW ===================== -->
+    <section id="view-history" role="tabpanel" aria-labelledby="tab-history" hidden>
+      <div class="history-toolbar">
+        <button type="button" class="btn btn-ghost" id="refresh-history">Atualizar</button>
+        <button type="button" class="btn btn-danger-ghost" id="reset-all">Limpar tudo</button>
+      </div>
+      <p class="status" id="history-status" role="status" aria-live="polite">Carregando registros…</p>
+      <div id="history-list"></div>
+    </section>
+  </main>
+
+  <!-- ===================== PREVIEW MODAL ===================== -->
+  <div class="modal-backdrop" id="modal-backdrop" hidden>
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+      <div class="modal-head">
+        <h2 id="modal-title">Texto formatado</h2>
+        <button type="button" class="icon-btn" id="modal-close" aria-label="Fechar">
+          <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="5" y1="5" x2="19" y2="19"/><line x1="19" y1="5" x2="5" y2="19"/></svg>
+        </button>
+      </div>
+      <textarea id="modal-textarea" readonly></textarea>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-primary" id="modal-copy">Copiar texto</button>
+      </div>
+      <p class="status" id="copy-status" role="status" aria-live="polite"></p>
+    </div>
+  </div>
+
+  <template id="projeto-template">
+    <div class="projeto-block card card--nested" data-projeto>
+      <div class="projeto-head">
+        <h3>Projeto <span data-index></span></h3>
+        <button type="button" class="icon-btn" data-remove-projeto aria-label="Remover este projeto">
+        <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="5" y1="5" x2="19" y2="19"/><line x1="19" y1="5" x2="5" y2="19"/></svg>
+      </button>
+      </div>
+      <div class="field">
+        <label>Título do projeto *</label>
+        <input type="text" data-field="titulo" required>
+      </div>
+      <div class="field">
+        <label>Descrição</label>
+        <textarea data-field="descricao" rows="3"></textarea>
+      </div>
+      <div class="field">
+        <label>Link (Jira, doc, etc.) — opcional</label>
+        <input type="url" data-field="link" placeholder="https://...">
+      </div>
+      <div class="field">
+        <label>Imagens (opcional)</label>
+        <input type="file" data-field="imagens" accept="image/*" multiple>
+        <span class="file-hint" data-file-hint></span>
+      </div>
+      <div class="row">
+        <div class="field">
+          <label>Usuários envolvidos</label>
+          <input type="number" data-field="usuarios" min="0" step="1" value="0">
+        </div>
+        <div class="field field-grow">
+          <label>Próxima ação</label>
+          <textarea data-field="proximaAcao" rows="2"></textarea>
+        </div>
+      </div>
+    </div>
+  </template>
+</div>
+
+<script src="script.js"></script>
+</body>
+</html>

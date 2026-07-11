@@ -1,0 +1,13 @@
+{
+  "name": "registro-semanal-ux",
+  "version": "1.0.0",
+  "description": "Registro semanal da equipe de UX, com histórico e upload de imagens, salvo localmente.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "multer": "^2.0.0"
+  }
+}
