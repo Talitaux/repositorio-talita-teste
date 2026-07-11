@@ -1,108 +1,101 @@
 const express = require('express');
-const multer = require('multer');
-const fs = require('fs');
+const cors = require('cors');
 const path = require('path');
-const crypto = require('crypto');
+const fs = require('fs');
+const multer = require('multer');
 
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 
-const DATA_DIR = path.join(__dirname, 'data');
-const DATA_FILE = path.join(DATA_DIR, 'entries.json');
-const UPLOADS_DIR = path.join(__dirname, 'uploads');
-
-// Garante que as pastas/arquivos existam antes de começar
-if(!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
-if(!fs.existsSync(DATA_FILE)) fs.writeFileSync(DATA_FILE, '[]');
-if(!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
-
-// Configura onde e como os arquivos de imagem são salvos
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, UPLOADS_DIR),
-  filename: (req, file, cb) => {
-    const ext = path.extname(file.originalname) || '';
-    cb(null, crypto.randomUUID() + ext);
-  }
-});
-const upload = multer({
-  storage,
-  limits: { fileSize: 10 * 1024 * 1024 } // 10MB por imagem
-});
-
+// Configurações básicas de segurança e leitura de dados
+app.use(cors());
 app.use(express.json());
-app.use('/uploads', express.static(UPLOADS_DIR));
-app.use(express.static(__dirname)); // serve index.html, style.css, script.js direto na raiz
 
-function readEntries(){
-  try{
-    return JSON.parse(fs.readFileSync(DATA_FILE, 'utf-8'));
-  }catch(err){
-    console.error('Erro ao ler entries.json, começando do zero:', err.message);
-    return [];
+// Garante que as pastas de armazenamento existam no servidor do Render
+const UPLOADS_DIR = path.join(__dirname, 'uploads');
+const DATA_DIR = path.join(__dirname, 'data');
+const FILE_PATH = path.join(DATA_DIR, 'entries.json');
+
+if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+if (!fs.existsSync(FILE_PATH)) fs.writeFileSync(FILE_PATH, JSON.stringify([]));
+
+// Configuração do Multer: Como as imagens/vídeos serão salvos na pasta 'uploads'
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, UPLOADS_DIR);
+  },
+  filename: (req, file, cb) => {
+    // Cria um nome único para o arquivo (ex: 1718293821-nome-da-foto.jpg)
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, uniqueSuffix + path.extname(file.originalname));
   }
-}
+});
+const upload = multer({ storage: storage });
 
-function writeEntries(entries){
-  fs.writeFileSync(DATA_FILE, JSON.stringify(entries, null, 2), 'utf-8');
-}
+// Permite que as pessoas acessem as imagens salvas pela URL (Ex: ://seu-site.com)
+app.use('/uploads', express.static(UPLOADS_DIR));
 
-// Lista todos os registros salvos
+// ---------------- ROTA 1: BUSCAR TODOS OS REGISTROS (GET) ----------------
 app.get('/api/entries', (req, res) => {
-  res.json(readEntries());
+  try {
+    const fileData = fs.readFileSync(FILE_PATH, 'utf-8');
+    const entries = JSON.parse(fileData || '[]');
+    res.json(entries);
+  } catch (error) {
+    console.error('Erro ao ler registros:', error);
+    res.status(500).json({ mensagem: 'Erro ao carregar os dados.' });
+  }
 });
 
-// Salva um novo registro, com as imagens que vierem junto
-app.post('/api/entries', upload.fields([
-  { name: 'meme_legal_img', maxCount: 1 },
-  { name: 'meme_foda_img', maxCount: 1 },
-  { name: 'meme_shit_img', maxCount: 1 },
-  { name: 'projeto_imagens', maxCount: 50 },
-]), (req, res) => {
-  try{
-    const entry = JSON.parse(req.body.entry);
-    const files = req.files || {};
-    const fileUrl = (f) => '/uploads/' + f.filename;
+// ---------------- ROTA 2: RECEBER NOVO REGISTRO COM MÍDIAS (POST) ----------------
+// O multer.any() aceita qualquer arquivo vindo dos blocos dinâmicos de projetos ou memes
+app.post('/api/entries', upload.any(), (req, res) => {
+  try {
+    // O texto estruturado enviado pelo fetch fica dentro de req.body.dados
+    if (!req.body.dados) {
+      return res.status(400).json({ mensagem: 'Dados do formulário não encontrados.' });
+    }
 
-    if(files.meme_legal_img) entry.memes.legal.imagem = fileUrl(files.meme_legal_img[0]);
-    if(files.meme_foda_img)  entry.memes.foda.imagem  = fileUrl(files.meme_foda_img[0]);
-    if(files.meme_shit_img)  entry.memes.shit.imagem  = fileUrl(files.meme_shit_img[0]);
+    const novaEntrada = JSON.parse(req.body.dados);
 
-    // As imagens de projeto chegam todas juntas, na ordem dos blocos do formulário.
-    // Cada projeto sabe quantas são suas (imagensCount), então distribuímos em fatias.
-    const projetoFiles = files.projeto_imagens || [];
-    let cursor = 0;
-    (entry.projetos || []).forEach(p => {
-      const count = p.imagensCount || 0;
-      const slice = projetoFiles.slice(cursor, cursor + count);
-      p.imagens = slice.map(fileUrl);
-      delete p.imagensCount;
-      cursor += count;
+    // Mapeia os arquivos físicos que o Multer acabou de salvar na pasta uploads
+    req.files.forEach(file => {
+      const urlDaMidia = `/uploads/${file.filename}`;
+
+      // Se for imagem de Meme, vincula ao meme correspondente
+      if (file.fieldname === 'meme_legal') novaEntrada.memes.legal.imagem = urlDaMidia;
+      if (file.fieldname === 'meme_foda') novaEntrada.memes.foda.imagem = urlDaMidia;
+      if (file.fieldname === 'meme_shit') novaEntrada.memes.shit.imagem = urlDaMidia;
+
+      // Se for imagem de Projeto Dinâmico (ex: projeto_0_img_0)
+      if (file.fieldname.startsWith('projeto_')) {
+        const partes = file.fieldname.split('_');
+        const projetoIndex = parseInt(partes[1], 10);
+        
+        if (novaEntrada.projetos[projetoIndex]) {
+          novaEntrada.projetos[projetoIndex].imagens.push(urlDaMidia);
+        }
+      }
     });
 
-    const entries = readEntries();
-    entries.push(entry);
-    writeEntries(entries);
+    // Lê o arquivo JSON atual, adiciona o novo registro e salva de volta
+    const fileData = fs.readFileSync(FILE_PATH, 'utf-8');
+    const entries = JSON.parse(fileData || '[]');
+    
+    entries.push(novaEntrada);
+    fs.writeFileSync(FILE_PATH, JSON.stringify(entries, null, 2));
 
-    res.json({ ok: true, entry });
-  }catch(err){
-    console.error('Erro ao salvar registro:', err);
-    res.status(500).json({ ok: false, error: String(err.message || err) });
+    console.log(`✓ Registro de ${novaEntrada.nome} salvo com sucesso!`);
+    res.status(201).json({ mensagem: 'Registro salvo com sucesso!', dados: novaEntrada });
+
+  } catch (error) {
+    console.error('Erro ao salvar registro:', error);
+    res.status(500).json({ mensagem: 'Erro interno ao processar o formulário.' });
   }
 });
 
-// Exclui um registro específico (mantém as imagens no disco, só remove a referência)
-app.delete('/api/entries/:id', (req, res) => {
-  const entries = readEntries().filter(e => e.id !== req.params.id);
-  writeEntries(entries);
-  res.json({ ok: true });
-});
-
-// Apaga todos os registros
-app.delete('/api/entries', (req, res) => {
-  writeEntries([]);
-  res.json({ ok: true });
-});
-
+// Inicializa o servidor na porta correta
 app.listen(PORT, () => {
-  console.log(`\n✅ Servidor rodando! Abra http://localhost:${PORT} no navegador.\n`);
+  console.log(`Servidor rodando e escutando na porta ${PORT}`);
 });
