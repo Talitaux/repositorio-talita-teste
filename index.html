@@ -42,9 +42,8 @@
     <span id="toast-message"></span>
   </div>
 
-  <!-- UX UPDATE: Alinhando o texto explicativo com a nova realidade na nuvem do Render -->
-  <p class="notice" role="note" id="servidor-notice">
-    Os registros e as imagens ficam salvos de forma segura no servidor do <strong>Render</strong> através do Node.js.
+  <p class="notice" role="note">
+    Os registros e as imagens ficam salvos <strong>localmente, na pasta deste projeto</strong> (arquivo <code>data/entries.json</code> e pasta <code>uploads/</code>).
   </p>
 
   <main>
@@ -100,11 +99,8 @@
           <button type="button" class="btn btn-ghost" id="add-projeto">+ Adicionar projeto</button>
         </fieldset>
 
-        <!-- UX UPDATE: Adicionado um container claro para mensagens de erro/sucesso da API -->
-        <div id="api-feedback-box" style="display:none; padding: 12px; margin-bottom: 16px; border-radius: 6px; font-weight: 500; font-size: 14px; text-align: center;" aria-live="polite"></div>
-
         <div class="actions">
-          <button type="submit" class="btn btn-primary" id="btn-salvar-registro">Salvar registro</button>
+          <button type="submit" class="btn btn-primary">Salvar registro</button>
           <button type="button" class="btn btn-ghost" id="preview-btn">Gerar texto formatado</button>
         </div>
         <p class="status" id="save-status" role="status" aria-live="polite"></p>
@@ -177,11 +173,6 @@
     </div>
   </template>
 </div>
-
-<!-- Salvando a URL do Render em uma variável global segura que o script.js vai conseguir ler -->
-<script>
-  window.API_URL = "https://onrender.com";
-</script>
 
 <script src="script.js"></script>
 </body>
